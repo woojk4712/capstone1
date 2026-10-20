@@ -1,5 +1,6 @@
 """External credentials are read exclusively from the project root .env."""
 import re
+import os
 import unicodedata
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -7,6 +8,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[2]
 ENV_PATH = ROOT / '.env'
 NAMES = ('ME_SERVICE_KEY', 'ME_URL', 'ME_STATUS_URL', 'KEPCO_SERVICE_KEY', 'KEPCO_URL')
+
+def runtime_directory():
+    if os.environ.get('CHARGEOPS_DEPLOYMENT') == 'render':
+        return Path(os.environ.get('CHARGEOPS_RUNTIME_DIR') or ROOT / 'data/runtime').resolve()
+    return ROOT / 'data/runtime'
 
 def clean_credential(value):
     return ''.join(c for c in value if not c.isspace() and unicodedata.category(c) != 'Cf')
@@ -50,7 +56,15 @@ class Settings:
     @classmethod
     def load(cls):
         from .services.me_classification import load_contract
-        return cls(read_env(), me_contract=load_contract(ROOT))
+        values = read_env()
+        if os.environ.get('CHARGEOPS_DEPLOYMENT') == 'render':
+            for name in (*NAMES, 'ME_INVENTORY_URL', 'ME_INVENTORY_CURRENT_STATUS_VERIFIED',
+                         'ME_MAPPING_VERIFIED', 'ME_STATUS_MAP', 'ME_FAST_TYPES', 'KEPCO_CONTRACT',
+                         'KEPCO_KEY_PARAM', 'KEPCO_ITEMS_PATH', 'KEPCO_TOTAL_PATH'):
+                if name in os.environ:
+                    value = os.environ[name]
+                    values[name] = clean_credential(value) if name in NAMES else value
+        return cls(values, me_contract=load_contract(ROOT))
 
     def get(self, name, default=''):
         return self.values.get(name, default)

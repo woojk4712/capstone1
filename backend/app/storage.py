@@ -3,14 +3,14 @@ import sqlite3
 from pathlib import Path
 from contextlib import contextmanager
 from datetime import datetime, timezone
-from .settings import ROOT
+from .settings import ROOT, runtime_directory
 
 def now():
     return datetime.now(timezone.utc).isoformat()
 
 class Storage:
     def __init__(self, path=None):
-        self.path = str(path or ROOT / 'data/runtime/external-api.sqlite')
+        self.path = str(path or runtime_directory() / 'external-api.sqlite')
         Path(self.path).parent.mkdir(parents=True, exist_ok=True)
         with self.connection() as db:
             db.executescript('''

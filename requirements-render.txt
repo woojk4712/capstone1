@@ -1,0 +1,8 @@
+# Runtime imports for the single FastAPI HTML/API service.
+fastapi>=0.115,<1
+uvicorn>=0.34,<1
+requests>=2.32,<3
+python-dotenv>=1.0,<2
+# Legacy ingest and optional Postgres adapter are preserved.
+openpyxl>=3.1,<4
+psycopg[binary]>=3.2,<4

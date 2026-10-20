@@ -1,0 +1,18 @@
+{
+  "format": 1,
+  "sha256": "95f35e44e9adb4259de39126b8521023dacb19307e5d43ee8ac3ef9d5a971db9",
+  "bytes": 3684798,
+  "counts": {
+    "demand": 187,
+    "facility": 188,
+    "session": 215532
+  },
+  "sources": {
+    "d1": "35e56933384d875f0d35bea179c959e31af3a8a59a163850d5535799657b383d",
+    "bridge": "00bd166b750d0ab19fbe3c884ea8337396716b84a5aba1345e189998c6ae8ceb",
+    "d2": "caa32e2ab071529014acd2cbcbc092e4397936e9e18e3aa8e9e407657e597958"
+  },
+  "publisher": "서울특별시",
+  "license": "공공누리 제1유형: 출처표시",
+  "description": "Derived demand, official facility evidence and session times/quality flags; no live snapshots or manual decisions."
+}

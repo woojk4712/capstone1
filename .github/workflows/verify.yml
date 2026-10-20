@@ -11,6 +11,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: pip install -r requirements.txt
+      - run: python scripts/check_render_seed.py
       - run: python -m unittest discover -s tests -v
   frontend:
     runs-on: ubuntu-latest

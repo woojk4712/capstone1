@@ -13,7 +13,7 @@ from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation
 from difflib import SequenceMatcher
 from pathlib import Path
-from .settings import ROOT
+from .settings import ROOT, runtime_directory
 from .storage import now
 from .services.me_api import classifications, model, number
 
@@ -59,7 +59,7 @@ def source_date(value):
 class AnalysisService:
     def __init__(self, external, path=None):
         self.external=external
-        self.path=Path(path or ROOT/'data/runtime/analysis.sqlite')
+        self.path=Path(path or runtime_directory()/'analysis.sqlite')
         self.path.parent.mkdir(parents=True,exist_ok=True)
         with self.db() as db:
             db.executescript('''

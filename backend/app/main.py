@@ -11,11 +11,11 @@ from pathlib import Path
 import sys
 if str(ROOT) not in sys.path: sys.path.insert(0,str(ROOT))
 
-def create_app(service=None, collect=True, public=False, public_origin=None):
+def create_app(service=None, collect=True, public=False, public_origin=None, analysis_factory=AnalysisService):
     external = service or ExternalService()
     external.runtime = 'fastapi'
     external.collection_enabled = collect
-    analysis = AnalysisService(external,Path(external.storage.path).parent/'analysis.sqlite')
+    analysis = analysis_factory(external,Path(external.storage.path).parent/'analysis.sqlite')
 
     @asynccontextmanager
     async def lifespan(app):
@@ -32,6 +32,11 @@ def create_app(service=None, collect=True, public=False, public_origin=None):
 
     app = FastAPI(title='Seoul Charge Ops', version='2.0.0', lifespan=lifespan)
     app.state.external = external
+    app.state.analysis = analysis
+
+    @app.get('/health')
+    def health():
+        return {'status': 'ok'}
 
     @app.middleware('http')
     async def public_access(request, call_next):

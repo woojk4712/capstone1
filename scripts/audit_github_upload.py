@@ -95,7 +95,7 @@ def main():
                 with zipfile.ZipFile(path) as archive:
                     hit = hit or any(suspicious(archive.read(member), known) for member in archive.infolist()
                                      if not member.is_dir() and member.file_size < 50_000_000)
-            elif args.scope == 'workspace' and path.suffix == '.gz':
+            elif path.suffix == '.gz':
                 hit = hit or suspicious(gzip.decompress(data), known)
             if hit:
                 leaks.append(name)

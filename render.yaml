@@ -1,0 +1,18 @@
+services:
+  - type: web
+    name: capstone1
+    runtime: python
+    plan: free
+    branch: main
+    buildCommand: pip install -r requirements-render.txt && python scripts/check_render_seed.py
+    startCommand: python -m uvicorn backend.app.render_app:app --host 0.0.0.0 --port $PORT --workers 1 --no-proxy-headers
+    healthCheckPath: /health
+    envVars:
+      - key: CHARGEOPS_DEPLOYMENT
+        value: render
+      - key: ME_SERVICE_KEY
+        sync: false
+      - key: ME_URL
+        value: https://apis.data.go.kr/B552584/EvCharger/getChargerInfo
+      - key: ME_STATUS_URL
+        value: https://apis.data.go.kr/B552584/EvCharger/getChargerStatus
