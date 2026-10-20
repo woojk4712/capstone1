@@ -1,0 +1,23 @@
+{
+  "source_file": "한국환경공단_전기자동차 충전소 정보_OpenAPI활용가이드_v1.25.docx",
+  "source_sha256": "b4996098429e15ef0841f1d5fa788e3fc0a9b472a865d480195c5ed6cdf64d17",
+  "status_verified": true,
+  "charger_type_verified": false,
+  "status_map": {
+    "0": "UNKNOWN",
+    "1": "COMM_ERROR",
+    "2": "AVAILABLE",
+    "3": "CHARGING",
+    "4": "STOPPED",
+    "5": "MAINTENANCE",
+    "6": "UNKNOWN",
+    "9": "UNKNOWN"
+  },
+  "fast_types": [],
+  "slow_types": [
+    "02",
+    "08"
+  ],
+  "unknown_status_policy": "Preserve raw code; UNKNOWN. Reservation 6 is not available or stopped.",
+  "type_policy": "Connector labels alone do not prove charging speed; only explicit slow descriptions accepted."
+}

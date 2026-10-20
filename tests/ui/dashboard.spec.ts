@@ -1,0 +1,35 @@
+import {test,expect} from '@playwright/test';
+test('facility → recovery → before/after → reset',async({page})=>{
+ await page.goto('/analysis');
+ await page.getByLabel('데이터 모드').selectOption('sample');
+ await expect(page.locator('.notice.sample')).toBeVisible();
+ await expect(page.locator('#map-count')).toContainText('24개소');
+ await page.locator('.station-link').first().click();
+ await expect(page.getByRole('dialog')).toBeVisible();
+ await page.keyboard.press('Escape');
+ await expect(page.getByRole('dialog')).toHaveCount(0);
+ await page.locator('.tabs [data-tab="priorities"]').click();
+ await page.locator('.tabs [data-tab="simulation"]').click();
+ const selected=page.locator('input[data-charger]:not(:disabled)').first();
+ const id=await selected.getAttribute('data-charger');
+ const normalBefore=await page.locator('#summary .teal-text.stat-value').innerText();
+ await selected.check();
+ await expect(page.locator('#selection-count')).toHaveText('선택한 설비 1기');
+ await expect(page.locator('#recovered')).not.toHaveText('회복 출력 +0 kW');
+ await page.locator('[data-view="after"]').click();
+ await expect(page.locator('#summary .teal-text.stat-value')).not.toHaveText(normalBefore);
+ await expect(page.locator(`input[data-charger="${id}"]`)).toHaveCount(0);
+ await page.locator('[data-view="before"]').click();
+ await expect(page.locator('#summary .teal-text.stat-value')).toHaveText(normalBefore);
+ await page.locator('[data-action="reset"]').click();
+ await expect(page.locator('#recovered')).toHaveText('회복 출력 +0 kW');
+ await expect(page.locator('#selection-count')).toHaveText('선택한 설비 0기');
+});
+test('filters, data quality, maintenance hold and CSV',async({page})=>{
+ await page.goto('/analysis');await page.getByLabel('데이터 모드').selectOption('sample');await expect(page.locator('#map-count')).toContainText('24개소');
+ await page.locator('#district').selectOption('종로구');await expect(page.locator('#map-count')).toContainText('2개소');await page.locator('.tabs [data-tab="simulation"]').click();await page.locator('[data-view="after"]').click();await expect(page.locator('#district')).toHaveValue('종로구');
+ const download=page.waitForEvent('download');await page.locator('[data-action="export"]').click();expect((await download).suggestedFilename()).toContain('sample');
+ await page.locator('.tabs [data-tab="maintenance"]').click();await page.locator('[data-action="maintenance"]').click();await expect(page.locator('.hold-message')).toContainText('자동 정비 추천 보류');
+ await page.locator('.tabs [data-tab="quality"]').click();await expect(page.locator('.source-report')).toHaveCount(2);await page.locator('[data-action="admin"]').click();await expect(page.locator('#match-form')).toBeVisible();
+ expect(await page.locator('body').evaluate(el=>el.scrollWidth<=window.innerWidth)).toBeTruthy();
+});

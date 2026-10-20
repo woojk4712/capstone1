@@ -1,0 +1,2 @@
+# Preserve the project's existing dependencies, including the D1/D2 pipeline.
+-r ../requirements.txt

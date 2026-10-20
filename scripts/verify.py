@@ -1,0 +1,21 @@
+"""Repeatable verification; never labels unexecuted browser or external checks as passing."""
+import hashlib,importlib.util,json,re,shutil,subprocess,sys
+from pathlib import Path
+from datetime import datetime,timezone
+ROOT=Path(__file__).resolve().parent.parent
+REPORT=ROOT/'reports';REPORT.mkdir(exist_ok=True)
+commands=[[sys.executable,'-m','unittest','discover','-s','tests','-v'],['node','--check','apps/web/src/dashboard.js'],['node','--test','tests/dashboard-model.test.mjs'],['node','--check','apps/web/src/station-map.js']]
+results=[]
+for command in commands:
+ result=subprocess.run(command,cwd=ROOT,capture_output=True,text=True,encoding='utf-8',errors='replace')
+ results.append(dict(command=' '.join(command),exit_code=result.returncode,output=result.stdout+result.stderr))
+assets=json.loads((REPORT/'source-quality.json').read_text(encoding='utf-8'))
+checks=[dict(file=a['file'],sha256=a['sha256'],unchanged=hashlib.sha256((ROOT/a['file']).read_bytes()).hexdigest()==a['sha256']) for a in assets]
+match=re.search(r'Ran (\d+) tests',results[0]['output']);count=int(match[1]) if match else None
+report=dict(checked_at=datetime.now(timezone.utc).isoformat(),tests=count,commands=results,source_checks=checks,fastapi_available=bool(importlib.util.find_spec('fastapi')),docker_available=bool(shutil.which('docker')),api_credentials_configured=False,browser_qa='See reports/ui-verification.json: isolated headless Chrome, local SVG map edition',react_build='not run: npm registry access EACCES')
+# Credentials are intentionally never read or copied by this report builder.
+(REPORT/'verification.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8')
+lines=['# 구현 검증 결과','',f"검증시각: {report['checked_at']}",'', '## 실행한 검사','',f"- Python unittest: {count}개, 종료코드 {results[0]['exit_code']}",f"- JS 문법 검사: 종료코드 {results[1]['exit_code']}",'- 원본 XLSX SHA-256 재대조: '+('모두 일치' if all(c['unchanged'] for c in checks) else '불일치 확인 필요'),'- Python 3.12.14, Node 24.14.0, Windows PowerShell 환경.','', '현재 산식은 impact-mean-v0.2의 (D+Q+B)/3, 기본 반경 500m입니다. JS 모델 테스트 7개도 통과했습니다. 검사 범위: 기존 곱셈식 예제 40/20/10은 legacy_impact 회귀검사로 분리하고 새 평균 산식·D/Q/B 공개를 검증했습니다. 추가로, 수요·대체망 단조성, 반경 경계와 자기 시설 제외, 물리 설비 중복, 최신성·결측·미승인·공유출력 보류, 빈 선택과 중복 선택, 출력 보존, 원본 상태 격리, 주변 시설 잔여 점수 재계산, 자정·연말·반개구간·동시 세션, 커버리지와 20일 표본, 추천창 비중첩.','', 'API/수집 통합 검사: 명시적 샘플, 실관측 미수집 503, 메타데이터·시설 상세 일치, 잘못된 반경/길이 422, 기준 반경 충돌 409, 관리자 인증 401, 매칭 검토→승인과 과거 실행 격리, 명칭 중복 승인 방지, 다중 페이지·재시도·페이지 누락·인증/할당량 오류·한전 실패 시 기본 스냅샷 유지. 외부 제공기관 호출은 모의 응답으로 검증했으며 실제 인증 검증이 아닙니다.','', 'HTTP 서버는 실제 루프백 소켓에서 HTML/JS 응답과 비공개 파일 차단을 검사했습니다. 테스트 서버는 종료했습니다.','', '## 실행 상태와 남은 인수 조건','', '| 항목 | 상태 / 근거 |','|---|---|','| 두 API 실인증 | `.env` 및 해당 키가 확인되지 않아 연결 대기. 실호출 0회 |','| 최신 가이드 전체·코드 검증 | 소개 페이지 확인만 수행. 가이드 파일·인증 응답 미확보 |','| 실제 시설 매칭 승인 | 주소·좌표·설비 근거 미확보. 실제 승인 0개 |','| React/TS/Vite 빌드·lock 파일 | npm install이 registry.npmjs.org EACCES로 실패 |','| FastAPI ASGI 실행 | fastapi/uvicorn 미설치. 동일 Service의 표준 HTTP 실행만 검증 |','| PostgreSQL/PostGIS·Docker | Docker 실행 파일 없음. 구성·SQL 소스 제공, 실제 DB 검증 미실행 |','| 화면·모바일·키보드 | 격리된 headless Chrome으로 실제 로컬 웹 UI 17개 검사 통과. reports/ui-verification.json 참조 |','| 실제 정비 추천 | 2025년 급속 전용 이력과 일별 커버리지 미확인, 추천 보류 |','| 공유출력 그룹 한도 계산 | 미구현. 확인되지 않은 공유 설비는 정밀 복구 선택에서 제외 |','| 다대다 시설/별칭 병합 | 현재 편집기 1:1 대응. 모호한 중복 승인은 차단 |','| 한전 설비 대응표 UI | 서버 등록 지원, UI 편집기 미구현 |','| 2023~2024 다년 정비 조회 | 원본 등록 확장 가능, 조회는 2025년 고정 |','| 성능 p95·동시 사용자 | 부하 검사 미실행 |','', '## 전달된 실행 경로','', '- `run-local.cmd` 또는 `scripts/run.ps1 serve`: 로컬 경량판, http://127.0.0.1:8000.','- React/FastAPI 및 Docker 명령: RUNBOOK.md.','- 기본 데이터는 실제 연결 대기이며 샘플 자동 전환 없음.','- 공개 배포 수행하지 않음.','', '초기 계획의 외부 실인증 인수 조건은 아직 충족되지 않았습니다. 로컬 경량 실행, 원자료 품질 검사, 엔진/API 테스트는 완료했고 위 외부 인증·환경·구현 제한은 별도 후속 검증이 필요합니다.']
+(REPORT/'verification.md').write_text('\n'.join(lines),encoding='utf-8')
+print(json.dumps(dict(tests=count,exit_codes=[r['exit_code'] for r in results],source_checks=checks),ensure_ascii=False))
+sys.exit(0 if all(r['exit_code']==0 for r in results) and all(c['unchanged'] for c in checks) else 1)

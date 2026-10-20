@@ -1,0 +1,8 @@
+<!doctype html>
+<html lang="ko"><head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>서울 충전 운영 · 실시간 API</title>
+<link rel="stylesheet" href="/apps/web/vendor/leaflet.css" crossorigin="anonymous">
+<link rel="stylesheet" href="/apps/web/src/live-api.css">
+</head><body><div id="root"></div>
+<script src="/apps/web/vendor/leaflet.js" crossorigin="anonymous"></script>
+<script type="module">import {mountLiveAPI} from '/apps/web/src/live-api.js';mountLiveAPI(document.querySelector('#root'),{L:window.L});</script>
+</body></html>

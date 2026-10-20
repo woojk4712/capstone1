@@ -1,0 +1,12 @@
+{
+  "request_verified": true,
+  "source": "사용자가 제공한 승인 요청 예시 (2026-10-16); 공식 매뉴얼 전체 검증과 구분",
+  "key_param": "apiKey",
+  "required_params": [],
+  "requiredness_verified": false,
+  "request_params_from_user_example": ["metroCd", "cityCd", "returnType"],
+  "params": {"metroCd": "11", "cityCd": "11", "returnType": "json"},
+  "response_format": "JSON",
+  "pagination": {"mode": "not_specified_in_user_example", "first_response_only": true},
+  "items_path": null
+}

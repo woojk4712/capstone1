@@ -1,0 +1,17 @@
+.env
+.env.*
+.git
+**/__pycache__
+.venv
+.runtime
+.npm-cache
+node_modules
+dist
+data/runtime
+data/raw
+reports
+release
+test-results
+playwright-report
+*.hwpx
+*.png

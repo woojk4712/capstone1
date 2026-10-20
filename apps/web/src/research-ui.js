@@ -1,0 +1,42 @@
+import {disposeResearchTabs,mountResearch as mountTabs,observeAnalysisRevision} from './research-tabs.js';
+import {mountRecovery,disposeRecovery} from './recovery-ui.js';
+export function mountResearch(...args){generation++;map?.destroy();map=null;disposeResearchTabs();disposeRecovery();return ['priorities','simulation'].includes(args[1])?mountRecovery(...args):mountTabs(...args);}
+import {createStationMap} from './station-map.js';
+const esc=v=>String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const num=(v,d=0)=>v==null?'—':Number(v).toLocaleString('ko-KR',{maximumFractionDigits:d});
+const state={reviewFilter:'review'};
+let generation=0,map=null;
+async function read(path,body){const r=await fetch(path,{cache:'no-store',...(body?{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)}:{})});const data=await r.json();if(!r.ok)throw new Error(data.detail||'분석 요청을 처리하지 못했습니다.');return data;}
+export function disposeResearch(){disposeResearchTabs();disposeRecovery();generation++;map?.destroy();map=null;}
+
+function funnelMarkup(f){
+ if(!f)return '';
+ const stages=[['D1 급속시설',f.d1FastFacilities],['confirmed',f.confirmed],['review',f.review],['설비 식별/출력 확인 시설',f.equipmentReadyFacilities],['잠재 영향 설비',f.potentialImpactChargers],['정확 Impact',f.exactImpactChargers],['상한검토 Impact',f.upperBoundImpactChargers],['현재 stat=4 core',f.currentCoreStopped],['D1 정밀 복구검토',f.currentRecoveryCandidates]];
+ return `<article class="panel" id="analysis-funnel"><h2>분석 Funnel</h2><p>${f.stale?'현재 상태는 최신 관측 대기 · 잠재 영향 수치는 마지막 저장 관측 기준':'현재 수집 관측 기준'} · ${esc(f.observationAt)}</p><div class="quality-grid">${stages.map(([name,value])=>`<div class="quality-card"><small>${name}</small><strong>${value==null?'관측 대기':num(value)}</strong></div>`).join('')}</div><h3>제외·보류 및 제한 속성</h3><p>이유는 중복 집계되며 시설/충전기 단위가 다릅니다. restricted_access는 접근 제한 속성 집계입니다.</p>${Object.entries(f.exclusionReasons||{}).map(([reason,v])=>`<p>${esc(reason)} · ${num(v.count)} (${esc(v.unit)})</p>`).join('')}<h3>남은 시설 review 사유</h3>${Object.entries(f.reviewReasons||{}).map(([reason,count])=>`<p>${esc(reason)} · ${num(count)}시설</p>`).join('')}</article>`;
+}
+
+export async function mountResearchQuality(host,lib){
+ disposeRecovery();
+ disposeResearchTabs();const marker=++generation;map?.destroy();map=null;host.innerHTML='<article class="panel empty-cell">시설 매칭과 자료 품질을 확인하는 중…</article>';
+ try{
+  const responses=await Promise.allSettled([read('/api/analysis/quality'),read('/api/analysis/matches')]);if(marker!==generation)return;
+  const m=responses[1].status==='fulfilled'?responses[1].value:{items:[],summary:{}};
+  const q=responses[0].status==='fulfilled'?responses[0].value:{d1:{},bridge:{},d2:{},matching:m.summary||{}};
+  observeAnalysisRevision(()=>{if(marker===generation)void mountResearchQuality(host,lib);},revision=>{if(marker===generation)host.dataset.analysisRevision=revision;});
+  const render=()=>{
+   map?.destroy();map=null;
+   const rows=m.items.filter(r=>state.reviewFilter==='all'||r.match_status===state.reviewFilter);
+   host.innerHTML=`${funnelMarkup(q.funnel)}${q.operationalRecovery?`<article class="panel"><h2>서울 운영 복구 대상</h2><p>stat=4 ${q.operationalRecovery.operationalStopped}기 / 선택 제외 ${q.operationalRecovery.excludedSelectableCount}기 / D1 연결 ${q.operationalRecovery.d1ConnectedStopped}기 / Q+B ${q.operationalRecovery.operationalScoreCount}기</p><p>${esc(JSON.stringify(q.operationalRecovery.exclusionReasons))}</p></article>`:''}<article class="panel"><h2>공식 자료 및 시설 연결 품질</h2><div class="quality-grid">${[['D1 2025',q.d1.available,`${q.d1.fast_station_names||0}개 급속 기록 시설`],['OA-21712',q.bridge.available,`${q.bridge.facilities||0}개 공식 시설`],['D2 2025',q.d2.available,`${num(q.d2.rows)}행 · ${q.d2.unique_station_names||0}개 명칭`]].map(([l,ok,n])=>`<div class="quality-card"><small>${l}</small><h3>${ok?'원자료 확인됨':'실제 파일 필요'}</h3><p>${esc(n)}</p></div>`).join('')}</div><p>확정 자동 ${q.matching.confirmed_auto} / 수동 ${q.matching.confirmed_manual} / 검토 ${q.matching.review} / 미매칭 ${q.matching.unmatched}<br>시설 연결률 ${num(q.facilityConnectionRate*100,2)}% · 급속 kWh 연결률 ${num(q.kwhConnectionRate*100,2)}%</p><p>D2 컬럼: ${esc((q.d2.columns||[]).join(' / '))}<br>원본 단위 충전량(kW) 유지 · 플래그 ${esc(JSON.stringify(q.d2.flags||{}))}<br>누락일을 자동 0으로 채우지 않습니다.</p><p>한전 교차검증: 현재 미사용</p></article><article class="panel"><div class="section-heading"><h2>D1-D3 시설 매칭 검토 · OA-21712 근거</h2><select id="research-review-filter">${[['review','검토 필요'],['unmatched','미매칭'],['confirmed_auto','자동 확정'],['confirmed_manual','수동 확정'],['all','전체']].map(([id,l])=>`<option value="${id}" ${id===state.reviewFilter?'selected':''}>${l}</option>`).join('')}</select></div><p>원본 이름과 공식 주소·설비 근거를 확인한 경우에만 동일 시설을 확정하세요. 유사도는 동일 시설 확률이 아닙니다.</p><div class="table-wrap"><table><thead><tr><th>D1 / 2025 급속 kWh</th><th>공식 시설대장 / 충전기 ID</th><th>D3 / 주소 / statId</th><th>유사도 / 근거 / 상태</th><th>사용자 검토</th></tr></thead><tbody>${rows.map((r,i)=>`<tr><td>${esc(r.d1_station_name)}<small>${num(r.annualFastKwh2025)} kWh</small></td><td>${esc(r.bridge?.name||'공식 후보 없음')}<small>${esc(r.bridge?.address||'')}</small><small>${esc(r.bridge?.rows.map(c=>c.CHARG_ID).join(', ')||'')}</small><small>자치구 ${esc(r.bridge?.district||'')}</small><small>${esc(r.bridge?.rows.map(c=>c.CHARG_TYPE+' / '+c.CHARG_CPCT).join(', ')||'')}</small></td><td>${esc(r.d3_station_name||'D3 후보 없음')}<small>${esc(r.d3_address||'')}</small><small>${esc(r.candidate_stat_id)}</small><small>좌표 ${esc(r.lat)}, ${esc(r.lng)}</small><small>chgerId / 타입 / 출력: ${esc(r.d3_chargers?.map(c=>c.chgerId+' / '+c.chgerType+' / '+c.output+'kW').join(', ')||'')}</small>${r.lat&&r.lng?`<button data-r-location="${i}">위치 확인</button>`:''}</td><td>${num(r.match_confidence,3)}<small>${esc(r.evidence||r.review_note)}</small><small>${esc(r.confidence_reason||'')}</small><small>${esc(r.hold_reason||'')}</small><b>${esc(r.match_status)}</b></td><td><textarea data-r-evidence="${i}" rows="2" placeholder="공식 주소/시설 확인 근거 또는 보류 이유"></textarea><label><input type="checkbox" data-r-same="${i}"> 동일 시설 직접 확인</label><button data-r-confirm="${i}" ${r.candidate_stat_id?'':'disabled'}>확정</button><button data-r-hold="${i}">보류</button></td></tr>`).join('')||'<tr><td colspan="5">이 상태의 시설이 없습니다.</td></tr>'}</tbody></table></div><div id="research-review-map" style="height:280px"><div id="tile-notice" hidden>배경지도 연결 확인 필요</div></div></article>`;
+   host.insertAdjacentHTML('beforeend',`<article class="panel"><h2>연결 범위 및 보류</h2><p>D2 연결 ${q.d2LinkedFacilities??0}개 시설 / ${num(q.d2LinkedRows)}행 · 연결률 ${num(q.d2LinkedRowRate==null?null:q.d2LinkedRowRate*100,2)}%<br>급속 전용 정비 분석 가능 ${q.maintenanceReadyFacilities??0}개 시설</p>${(q.analysisHolds||[]).map(s=>`<p>${esc(s.name)} · ${esc(s.statId)} · 설비 확인 필요 ${s.unknownEquipmentCount}기 · ${esc(s.maintenanceStatus)}</p>`).join('')}</article>`);
+   host.onchange=e=>{if(e.target.id==='research-review-filter'){state.reviewFilter=e.target.value;render();}};
+   host.onclick=async e=>{
+    const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.rLocation!=null){const r=rows[Number(b.dataset.rLocation)];map?.destroy();map=createStationMap(host.querySelector('#research-review-map'),lib,()=>{},{hostId:'research-review-leaflet-map',zoomAnimation:false,fadeAnimation:false,markerZoomAnimation:false});const s={id:r.candidate_stat_id,name:r.d3_station_name,lat:r.lat,lon:r.lng,chargers:[]};map.update([s],s.id,500);map.flyTo(s);host.querySelector('#research-review-map').scrollIntoView({block:'center'});return;}
+    const index=b.dataset.rConfirm??b.dataset.rHold;if(index==null)return;const r=rows[Number(index)];const action=b.dataset.rConfirm!=null?'confirm':'hold';const evidence=host.querySelector(`[data-r-evidence="${index}"]`).value;
+    if(action==='confirm'&&!host.querySelector(`[data-r-same="${index}"]`).checked){alert('동일 시설을 직접 확인한 경우에만 체크하고 확정하세요.');return;}
+    try{await read('/api/analysis/matches/review',{d1StationName:r.d1_station_name,statId:r.candidate_stat_id,action,evidence});host.dispatchEvent(new CustomEvent('research-match-updated',{bubbles:true}));await mountResearchQuality(host,lib);}catch(err){alert(err.message);}
+   };
+  };render();
+  if(responses.some(r=>r.status==='rejected'))host.insertAdjacentHTML('afterbegin','<p class="research-observation">일부 품질자료 조회 실패 · 조회된 자료만 표시합니다.</p>');
+ }catch(e){if(marker===generation)host.innerHTML=`<article class="panel empty-cell">${esc(e.message)}</article>`;}
+}
